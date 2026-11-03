@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: greenlight-band
+    runtime: node
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PUBLIC_URL
+        sync: false
