@@ -11,36 +11,34 @@ function toast(message) { $('#toast').textContent = message; $('#toast').classLi
 const descriptions = ['A little six-string soul.','Hold down the good vibrations.','A different kind of daydream.','Give the room a heartbeat.','The little things make the groove.'];
 INSTRUMENTS.forEach((instrument, index) => {
   const card = document.createElement('article'); card.className = `instrument-card ${instrument}`; card.id = `card-${instrument}`;
-  card.innerHTML = `<div class="card-top"><span>0${index + 1}</span><span class="seat-tag">OPEN SPOT</span></div><div class="instrument-art" aria-hidden="true"><svg viewBox="0 0 135 120">${drawings[instrument]}</svg></div><h3>${names[instrument]}</h3><p class="description">${descriptions[index]}</p><div class="seat-person"><i></i><span>Could be you</span></div><button class="seat-button invite" disabled>Connect phone <span>↗</span></button><p class="track-status">No loop yet</p><div class="track-actions"><button data-action="record" title="Record four bars" disabled>● Record</button><button data-action="loop-start" disabled>▶ Loop</button><button data-action="loop-stop" disabled>■ Stop</button><button data-action="clear" disabled>× Clear</button></div><button class="release text-button hidden">Release spot</button>`;
+  card.innerHTML = `<div class="card-top"><span>0${index + 1}</span><span class="seat-tag">OPEN SPOT</span></div><div class="instrument-art" aria-hidden="true"><svg viewBox="0 0 135 120">${drawings[instrument]}</svg></div><h3>${names[instrument]}</h3><p class="description">${descriptions[index]}</p><div class="seat-person"><i></i><span>Could be you</span></div><button class="seat-button invite" disabled>Connect phone <span>↗</span></button><p class="link-status">Live input</p><button class="release text-button hidden">Release spot</button>`;
   card.querySelector('.invite').onclick = () => pairing(instrument);
   card.querySelector('.release').onclick = () => { host.remove(host.seats.slots[instrument]); if (!host.local) { $('#local-instrument').value = ''; $('#desktop-controls').replaceChildren(); } };
-  for (const button of card.querySelectorAll('[data-action]')) button.onclick = () => { try { host.command(instrument, button.dataset.action); } catch (e) { toast(e.message); } };
   $('#instruments').append(card);
 });
 function render() {
   if (!host) return;
   $('#player-count').textContent = `${Object.values(host.seats.slots).filter(Boolean).length} / 5 on stage`;
   $('#queue-count').textContent = `${host.seats.queue.length} waiting`;
-  $('#transport').disabled = false; $('#transport').textContent = host.clock.running ? 'Stop the clock ■' : 'Start the clock ▶';
-  $('#tempo').disabled = host.clock.running; $('#room-qr').disabled = host.network !== 'ready'; $('#local-instrument').disabled = false;
+  $('#transport').disabled = false; $('#transport').textContent = host.running ? 'Pause playing ■' : 'Resume playing ▶';
+  $('#room-qr').disabled = host.network !== 'ready'; $('#local-instrument').disabled = false;
   $('#room-message').textContent = host.seats.queue.length ? `${host.seats.queue.length} waiting. The next open instrument goes to the first phone in line.` : 'Five spots. Scan an instrument’s code or share the room invitation.';
   $('#drop-count').textContent = `Late / invalid notes dropped: ${host.gate.dropped}`;
   for (const instrument of INSTRUMENTS) {
-    const card = $(`#card-${instrument}`), peer = host.seats.slots[instrument], track = host.tracks[instrument];
+    const card = $(`#card-${instrument}`), peer = host.seats.slots[instrument];
     card.querySelector('.seat-tag').textContent = peer ? 'ON STAGE' : 'OPEN SPOT';
     card.querySelector('.seat-person span').textContent = peer ? host.seats.players.get(peer).name : 'Could be you';
     card.querySelector('.invite').disabled = host.network !== 'ready';
     card.querySelector('.invite').textContent = peer ? 'Invite / join queue ↗' : 'Connect phone ↗';
-    card.querySelector('.track-status').textContent = track.label(host.clock, performance.now());
+    card.querySelector('.link-status').textContent = peer === host.id ? 'Keyboard · immediate' : peer ? (host.direct.get(peer)?.ready ? 'Direct connection · WebRTC' : 'Relay connection · Supabase') : 'Ready for live input';
     card.querySelector('.release').classList.toggle('hidden', !peer);
-    for (const button of card.querySelectorAll('[data-action]')) button.disabled = !peer || (['record','loop-start'].includes(button.dataset.action) && !host.clock.running);
     $(`#local-instrument option[value="${instrument}"]`).disabled = !!peer && peer !== host.id;
   }
 }
 function connection(status, error) {
   $('#connection-dot').classList.toggle('online', status === 'ready');
   $('#connection-text').textContent = status === 'ready' ? 'LIVE & TOGETHER' : status.toUpperCase();
-  $('#host-status').textContent = error || ({ ready: 'Stage connected. Invite phones, then start the clock.', connecting: 'Connecting the stage…', disconnected: 'Connection lost. Reconnecting; playback is stopped.' }[status] || status);
+  $('#host-status').textContent = error || ({ ready: 'Stage connected. Invite phones and play live.', connecting: 'Connecting the stage…', disconnected: 'Connection lost. Reconnecting; playback is stopped.' }[status] || status);
   render();
 }
 $('#host-button').onclick = async () => {
@@ -51,14 +49,13 @@ $('#host-button').onclick = async () => {
       const card = $(`#card-${instrument}`); card.classList.add('playing'); setTimeout(() => card.classList.remove('playing'), 120);
     } });
     $('#host-button').textContent = 'Stage is open ✓'; $('#dock-status').textContent = 'HOST AUDIO · ON';
-    audio.context.onstatechange = () => { if (audio.context.state !== 'running') { host?.stop(); $('#host-status').textContent = 'Audio paused. Tap Start the clock to resume.'; } };
-    render();
+    audio.context.onstatechange = () => { if (audio.context.state !== 'running') { host?.stop(); $('#host-status').textContent = 'Audio paused. Tap Resume playing to resume.'; } };
+    host.start(); render();
   } catch (e) { toast(e.message); $('#host-status').textContent = e.message; $('#host-button').disabled = false; }
 };
 $('#transport').onclick = async () => {
-  try { if (host.clock.running) host.stop(); else { if (document.hidden) return; await audio.enable(); host.start(); } render(); } catch (e) { toast(e.message); }
+  try { if (host.running) host.stop(); else { if (document.hidden) return; await audio.enable(); host.start(); } render(); } catch (e) { toast(e.message); }
 };
-$('#tempo').onchange = () => { try { host?.setTempo(Number($('#tempo').value)); } catch (e) { toast(e.message); } $('#tempo').value = host?.clock.bpm || 100; };
 $('#local-instrument').onchange = () => {
   try { host.localInstrument($('#local-instrument').value); if (host.local) controls($('#desktop-controls'), host.local, note => host.localNote(note)); else $('#desktop-controls').replaceChildren(); }
   catch (e) { toast(e.message); $('#local-instrument').value = host.local || ''; }
@@ -82,11 +79,5 @@ $('#about-button').onclick = () => $('#about-dialog').showModal();
 for (const button of document.querySelectorAll('.close-dialog')) button.onclick = () => button.closest('dialog').close();
 $('#mute-button').onclick = async () => { if (!audio.context) { toast('Open the stage first.'); return; } await audio.enable(); audio.muted = !audio.muted; audio.setVolume(audio.volume); $('#mute-button').textContent = audio.muted ? '◖×' : '◖))'; $('#dock-status').textContent = audio.muted ? 'HOST AUDIO · MUTED' : 'HOST AUDIO · ON'; };
 $('#volume').oninput = () => { audio.setVolume(Number($('#volume').value) / 100); $('#volume-label').textContent = `${$('#volume').value}%`; };
-setInterval(() => {
-  if (!host) return;
-  const beat = host.clock.running ? Math.max(0, Math.floor(host.clock.stepAt(performance.now()) / 4)) : -1;
-  $('#bar-label').textContent = beat < 0 ? 'Clock stopped' : `Bar ${Math.floor(beat / 4) + 1} · Beat ${beat % 4 + 1}`;
-  [...$('#beat-dots').children].forEach((dot, index) => dot.classList.toggle('on', beat >= 0 && index === beat % 4));
-}, 60);
-document.addEventListener('visibilitychange', () => { if (document.hidden) { host?.stop(); $('#host-status').textContent = 'Playback stopped because the host was backgrounded. Tap Start the clock to resume.'; } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { host?.stop(); $('#host-status').textContent = 'Playback stopped because the host was backgrounded. Tap Resume playing to resume.'; } });
 window.addEventListener('pagehide', () => host?.close());

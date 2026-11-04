@@ -1,53 +1,35 @@
-# GREENLIGHT Band — GitHub Pages edition
+# GREENLIGHT Band — live instruments
 
-The deployment folder is a **static website**. Upload its **contents** to the root of your GitHub repository. `index.html`, `controller.html`, `shared-config.json`, `src/`, and `vendor/` must remain together. No Node hosting, install step, or build command is needed in production.
+Upload **all contents of deployment/** to your GitHub repository root, including `src/`, `vendor/`, `styles.css` and `shared-config.json`. Enable Pages from your branch's root. There is no production Node server or build step. Open the Pages URL on your computer, select Open the stage, then scan an instrument QR code on a phone. Localhost QR links cannot be opened from another device.
 
-## Publish on GitHub Pages
+## Connections
 
-1. Replace the previous repository files with this deployment package. Remove obsolete `server.js`, `render.yaml`, `package.json`, `package-lock.json`, `.env.example`, and the old `public/` folder if they are still present in the repository.
-2. In repository Settings → Pages, select **Deploy from a branch**, select the branch containing these files, and choose **/(root)**. Save.
-3. Wait for the Pages deployment to finish successfully in Actions. For the `haphfles/jam` repository, visit `https://haphfles.github.io/jam/`.
-4. Refresh any old tabs. Click **Open the stage** on your computer, then **Connect phone** on an instrument or **Invite the band**.
-5. Scan the new QR code on each phone, enter a name, and tap Connect. Start the clock on the host. Audio plays only on the computer.
+Supabase is already configured through `shared-config.json`, using RODA's public publishable configuration. It handles QR room introductions, WebRTC signaling, reliable settings/state, and fallback note delivery. RODA files remain unchanged. Never put a secret/service-role key in browser files.
 
-All asset and controller URLs are relative, so a GitHub project subpath such as `/jam/` works. The QR code automatically uses the address from which the host was opened. QR links generated on localhost will not work on a phone; generate them from the published HTTPS site instead.
+Live notes prefer a WebRTC data channel directly between phone and host. It is unordered with zero retransmissions; congested sends are dropped rather than queued by the app. Supabase carries notes if WebRTC cannot connect. Google’s public STUN service helps discover network routes; there is no TURN relay configured. Restrictive networks can prevent direct connections, in which case the Supabase fallback remains available. No camera, microphone, app installation, or Bluetooth is required.
 
-## Supabase
+The phone and instrument cards show Direct (WebRTC) or Relay (Supabase). Phone RTT measures messages over the active route, not physical press-to-speaker latency. Clock sync is reset and inputs disabled briefly when switching routes. Same Wi-Fi and built-in/wired host speakers usually provide the most responsive setup; actual performance depends on devices and networks.
 
-GitHub Pages hosts all application files. Supabase Realtime relays small input and control messages; this is not a service-free peer-to-peer game. The package includes the **public publishable configuration** from the existing RODA game. No secret/service-role key is included. RODA itself was not modified.
+## Live playing only
 
-GREENLIGHT uses a separate random channel namespace, `greenlight-band-<room token>`. Supabase must permit public Realtime broadcast channels for the configured project. No database tables, SQL migrations, or Edge Functions are needed. If using a separate project, update `shared-config.json` with its HTTPS project URL and `sb_publishable_...` key. Never put a secret/service-role key in browser files.
+Five unique instrument seats and a FIFO waiting list remain. All sound is generated on the host computer. The host may reserve one seat for its keyboard (A S D F G H J K). Opening the stage enables playing; Pause/Resume controls everyone. Each phone can change its own volume. Keep host and phone pages visible. Host backgrounding pauses playback; a missing phone is released after about ten seconds.
 
-Rooms are capability links, not authenticated accounts: share them only with intended participants. The host is the authority on five seats and the FIFO queue. The first available seat is assigned if the instrument named by an invitation is already occupied. Connections and messages consume the Supabase project's shared Realtime quota, including when RODA is also running.
+There are no recording, pattern, quantization, or repeated-playback tools in this version. Nothing is saved or played automatically. Remote audio streaming is not provided.
 
-## Playing and loops
+## Timing
 
-- One computer hosts audio and the musical clock. Five phones can each own a unique instrument. Extra phones wait in order.
-- The host can reserve one instrument for keyboard playing with A S D F G H J K.
-- Notes play live while the clock runs. Melodic sounds use C minor pentatonic.
-- Record arms a new **four-bar loop** on the next bar and replaces that instrument's previous loop. Input is quantized to sixteenth notes. After four bars, the recording repeats automatically.
-- Start loop resumes a saved pattern on the next bar. Stop loop preserves it; Clear erases it. Releasing a player also clears their loop.
-- Change tempo while stopped. Starting the host transport restarts saved loops together. Host transport and instrument controls are available on the computer; phone controls affect only their own instrument.
-- Phones do not produce audio. People listen through the host speakers. This edition does not stream audio to remote listeners, record audio files, or use Bluetooth.
+The fixed 120 ms delay has been removed. Local keyboard input schedules about 2 ms ahead. Remote input uses recent measured arrival ages to choose a small adaptive scheduling target (6–35 ms direct; 12–80 ms relay), measured from the estimated original press time—not added on top of network transit. Already-arrived notes schedule at least 2 ms ahead. These are software targets, not guaranteed end-to-end latency.
 
-## Timing and reliability
+Sequence numbers and stage epochs reject duplicate/old-session inputs. Age gates drop stale packets without allowing a late packet to expand its own deadline. Volume commands and pause/resume state retain recipient-bound acknowledgements, deduplication, bounded retries and failure feedback. A broken connection is not treated as successful delivery.
 
-Clock synchronization uses several ping/pong samples and the lowest round-trip sample from the most recent ten. Phone events carry a sequence, host-clock timestamp, and transport epoch. Inputs are sent once, with a 120 ms scheduling buffer. The host rejects repeated inputs, old epochs, timestamps over 60 ms into the future, and notes arriving more than 20 ms past their scheduled time. Late notes are discarded, not replayed after reconnect.
+## Publishing checklist
 
-Host loops run from a 25 ms scheduler with an 80 ms Web Audio lookahead. Late loop ticks are skipped after a stall. Start/stop/clear/record/volume commands use recipient-bound acknowledgements, deduplication, and retries for up to five seconds, plus host command results. Controls show failure if confirmation is not received. State changes use reliable delivery and are also refreshed periodically. Reliability is bounded, not a guarantee during an outage.
+At the repository root you must have `index.html`, `controller.html`, `app.js`, `controller.js`, `art.mjs`, `styles.css`, `shared-config.json`, `src/` and `vendor/`. Missing CSS gives an unstyled page; missing modules prevent instrument cards and controls from working. Keep `.nojekyll` too. Remove obsolete Node/Render files from the old upload. After Pages finishes deploying, refresh both host and phone tabs and generate new QR codes.
 
-## Lifecycle and limits
+Public room links are capability invitations, not authenticated accounts. Anyone with a link can join; only share with intended players. Supabase Realtime quotas are shared with any other app using the same project. Keep its public broadcast channels enabled.
 
-Keep both host and controllers visible. Backgrounding the host stops audio and the transport; resume with Start the clock. Phone controls disable when the host is missing or the clock is unsynchronized. Ten seconds without a phone heartbeat releases its seat to the queue. Reloading the host creates a new room and new QR links; loops are held in memory and are not persisted.
+## Development
 
-All devices need internet access to Supabase, but do not need the same Wi-Fi once the host is on GitHub Pages. Supabase latency varies: this is a casual jam tool, not guaranteed low-latency professional performance. A host must remain open for a room to exist.
+From `development/`, run `npm start` for a static preview, `npm test` for local tests, and `npm run package` to refresh deployment. Files are served under `/jam/` locally to exercise project-relative paths. Local tests do not establish physical-phone or real-world speaker latency.
 
-## Troubleshooting
-
-- **404 at `/jam/`:** verify Pages is enabled and `index.html` is at the selected publishing root. Check the deployment in Actions.
-- **Stage won't connect:** check `shared-config.json`, public Realtime channel access, internet access and Supabase project availability/quotas.
-- **Phone cannot open QR URL:** generate it from the published site, not localhost; use a new code after restarting the host.
-- **Connected but silent:** start the host clock, enable host audio, unmute, and keep the host visible.
-- **Notes are dropped:** improve connectivity; delayed notes are intentionally not replayed.
-
-QR vendor: QR Code Generator by Kazuhiko Arase, MIT license (attribution preserved in `vendor/qrcode.mjs`). Connection lifecycle adapted from RODA's phone-channel and phone-host files, read as references only.
+QR library: Kazuhiko Arase, MIT; attribution is preserved in vendor/qrcode.mjs. Supabase connection lifecycle adapted from RODA, read as reference only.
