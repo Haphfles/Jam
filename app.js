@@ -1,3 +1,4 @@
+import { playScreen, exitPlayScreen } from './src/play-screen.mjs';
 import { phoneConfig } from './src/channel.mjs';
 import { HostSession } from './src/host-session.mjs';
 import { BandAudio } from './src/audio.mjs';
@@ -6,14 +7,15 @@ import { names, controls, keyboard } from './src/controls.mjs';
 import { drawings } from './art.mjs';
 import qrcode from './vendor/qrcode.mjs';
 const $ = selector => document.querySelector(selector);
-const audio = new BandAudio(); let host, toastTimer;
+const audio = new BandAudio(); let host, toastTimer, soloInstrument = null;
 function toast(message) { $('#toast').textContent = message; $('#toast').classList.remove('hidden'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.add('hidden'), 5000); }
 const descriptions = ['A little six-string soul.','Hold down the good vibrations.','A different kind of daydream.','Give the room a heartbeat.','The little things make the groove.'];
 INSTRUMENTS.forEach((instrument, index) => {
   const card = document.createElement('article'); card.className = `instrument-card ${instrument}`; card.id = `card-${instrument}`;
-  card.innerHTML = `<div class="card-top"><span>0${index + 1}</span><span class="seat-tag">OPEN SPOT</span></div><div class="instrument-art" aria-hidden="true"><svg viewBox="0 0 135 120">${drawings[instrument]}</svg></div><h3>${names[instrument]}</h3><p class="description">${descriptions[index]}</p><div class="seat-person"><i></i><span>Could be you</span></div><button class="seat-button invite" disabled>Connect phone <span>↗</span></button><p class="link-status">Live input</p><button class="release text-button hidden">Release spot</button>`;
+  card.innerHTML = `<div class="card-top"><span>0${index + 1}</span><span class="seat-tag">OPEN SPOT</span></div><div class="instrument-art" aria-hidden="true"><svg viewBox="0 0 135 120">${drawings[instrument]}</svg></div><h3>${names[instrument]}</h3><p class="description">${descriptions[index]}</p><div class="seat-person"><i></i><span>Could be you</span></div><button class="seat-button play-here">Play here ↗</button><button class="seat-button invite" disabled>Connect phone <span>↗</span></button><p class="link-status">Live input</p><button class="release text-button hidden">Release spot</button>`;
+  card.querySelector('.play-here').onclick = () => chooseInstrument(instrument);
   card.querySelector('.invite').onclick = () => pairing(instrument);
-  card.querySelector('.release').onclick = () => { host.remove(host.seats.slots[instrument]); if (!host.local) { $('#local-instrument').value = ''; $('#desktop-controls').replaceChildren(); } };
+  card.querySelector('.release').onclick = () => { host.remove(host.seats.slots[instrument]); if (!host.local) { soloInstrument = null; $('#local-instrument').value = ''; $('#desktop-controls').replaceChildren(); } };
   $('#instruments').append(card);
 });
 function render() {
@@ -26,6 +28,7 @@ function render() {
   $('#drop-count').textContent = `Late / invalid notes dropped: ${host.gate.dropped}`;
   for (const instrument of INSTRUMENTS) {
     const card = $(`#card-${instrument}`), peer = host.seats.slots[instrument];
+    card.querySelector('.play-here').disabled = !!peer && peer !== host.id;
     card.querySelector('.seat-tag').textContent = peer ? 'ON STAGE' : 'OPEN SPOT';
     card.querySelector('.seat-person span').textContent = peer ? host.seats.players.get(peer).name : 'Could be you';
     card.querySelector('.invite').disabled = host.network !== 'ready';
@@ -50,17 +53,41 @@ $('#host-button').onclick = async () => {
     } });
     $('#host-button').textContent = 'Stage is open ✓'; $('#dock-status').textContent = 'HOST AUDIO · ON';
     audio.context.onstatechange = () => { if (audio.context.state !== 'running') { host?.stop(); $('#host-status').textContent = 'Audio paused. Tap Resume playing to resume.'; } };
-    host.start(); render();
+    host.start(); if (soloInstrument) host.localInstrument(soloInstrument); render();
   } catch (e) { toast(e.message); $('#host-status').textContent = e.message; $('#host-button').disabled = false; }
 };
 $('#transport').onclick = async () => {
   try { if (host.running) host.stop(); else { if (document.hidden) return; await audio.enable(); host.start(); } render(); } catch (e) { toast(e.message); }
 };
-$('#local-instrument').onchange = () => {
-  try { host.localInstrument($('#local-instrument').value); if (host.local) controls($('#desktop-controls'), host.local, note => host.localNote(note)); else $('#desktop-controls').replaceChildren(); }
-  catch (e) { toast(e.message); $('#local-instrument').value = host.local || ''; }
+function play(note) {
+  if (host) host.localNote(note);
+  else if (soloInstrument && !document.hidden) audio.note(soloInstrument, note, performance.now() + 2, .75);
+}
+async function chooseInstrument(instrument) {
+  try {
+    await audio.enable();
+    if (host) host.localInstrument(instrument);
+    audio.stop(); soloInstrument = instrument || null;
+    $('#local-instrument').value = instrument;
+    if (instrument) { controls($('#desktop-controls'), instrument, play); playScreen($('.player-panel')); }
+    else { $('#desktop-controls').replaceChildren(); exitPlayScreen($('.player-panel')); }
+    $('#dock-status').textContent = 'DEVICE AUDIO · ON';
+  } catch (e) { toast(e.message); $('#local-instrument').value = host?.local || soloInstrument || ''; }
+}
+$('#local-instrument').onchange = () => chooseInstrument($('#local-instrument').value);
+$('#play-here').onclick = () => chooseInstrument(host ? (host.local || INSTRUMENTS.find(i => !host.seats.slots[i]) || '') : (soloInstrument || 'guitar'));
+$('#exit-play').onclick = () => exitPlayScreen($('.player-panel'));
+$('#join-band').onclick = () => $('#join-dialog').showModal();
+$('#join-form').onsubmit = event => {
+  event.preventDefault();
+  try {
+    const link = new URL($('#join-link').value), expected = new URL('./controller.html', location.href);
+    const params = new URLSearchParams(link.hash.slice(1));
+    if (link.origin !== expected.origin || link.pathname !== expected.pathname || !/^[a-f0-9]{32}$/.test(params.get('room') || '') || !/^[a-f0-9]{32}$/.test(params.get('host') || '')) throw Error('Paste a band invitation from this site.');
+    location.href = link.href;
+  } catch (e) { toast(e.message); }
 };
-keyboard(note => host?.localNote(note));
+keyboard(play);
 function pairing(instrument = '') {
   if (!host?.channel.ready) return;
   const url = new URL('./controller.html', location.href); url.hash = new URLSearchParams({ room: host.room, host: host.id, instrument });
@@ -79,5 +106,5 @@ $('#about-button').onclick = () => $('#about-dialog').showModal();
 for (const button of document.querySelectorAll('.close-dialog')) button.onclick = () => button.closest('dialog').close();
 $('#mute-button').onclick = async () => { if (!audio.context) { toast('Open the stage first.'); return; } await audio.enable(); audio.muted = !audio.muted; audio.setVolume(audio.volume); $('#mute-button').textContent = audio.muted ? '◖×' : '◖))'; $('#dock-status').textContent = audio.muted ? 'HOST AUDIO · MUTED' : 'HOST AUDIO · ON'; };
 $('#volume').oninput = () => { audio.setVolume(Number($('#volume').value) / 100); $('#volume-label').textContent = `${$('#volume').value}%`; };
-document.addEventListener('visibilitychange', () => { if (document.hidden) { host?.stop(); $('#host-status').textContent = 'Playback stopped because the host was backgrounded. Tap Resume playing to resume.'; } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { audio.stop(); host?.stop(); if (host) $('#host-status').textContent = 'Playback stopped because the host was backgrounded. Tap Resume playing to resume.'; } });
 window.addEventListener('pagehide', () => host?.close());

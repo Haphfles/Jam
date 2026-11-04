@@ -4,7 +4,7 @@ import { INSTRUMENTS, Seats, InputGate } from './music-core.mjs';
 export class HostSession {
   constructor(config, audio, { change = () => {}, status = () => {}, flash = () => {}, ChannelClass = PhoneChannel, DirectClass = DirectLink } = {}) {
     Object.assign(this, { audio, change, status, flash, DirectClass }); this.direct = new Map(); this.attempts = new Map(); this.generation = 0;
-    this.room = randomId(); this.id = randomId(); this.epoch = randomId(); this.revision = 0;
+    this.room = randomId(); this.id = randomId(); this.epoch = randomId(); this.revision = 0; this.performanceSeq = 0;
     this.seats = new Seats(); this.gate = new InputGate(); this.running = false;
     this.volumes = Object.fromEntries(INSTRUMENTS.map(i => [i, .75]));
     this.local = null;
@@ -39,14 +39,21 @@ export class HostSession {
     if (this.local) this.release(this.id);
     if (!instrument) { this.local = null; this.change(); return; }
     if (!INSTRUMENTS.includes(instrument) || this.seats.slots[instrument]) throw Error('That instrument is occupied.');
-    this.seats.join(this.id, 'Host keyboard', instrument, performance.now()); this.local = instrument; this.publish(true);
+    this.seats.join(this.id, 'Playing here', instrument, performance.now()); this.local = instrument; this.publish(true);
   }
   localNote(note) {
     if (!this.local || !this.running) return;
     this.perform(this.local, note, performance.now() + 2);
   }
-  perform(instrument, note, target) {
+  perform(instrument, note, target, origin = this.id) {
     this.audio.note(instrument, note, target, this.volumes[instrument]); this.flash(instrument, note);
+    const message = { type: 'performance', epoch: this.epoch, seq: ++this.performanceSeq, instrument, note, at: target, volume: this.volumes[instrument] };
+    for (const peer of this.seats.players.keys()) {
+      if (peer === this.id || peer === origin) continue;
+      const link = this.direct.get(peer);
+      if (link?.ready) link.send(message);
+      else if (!(this.channel.ws?.bufferedAmount > 1024)) this.channel.send(message, peer);
+    }
   }
   command(instrument, action, value) {
     if (!INSTRUMENTS.includes(instrument)) throw Error('No instrument assigned.');
@@ -76,7 +83,7 @@ export class HostSession {
     if (m.type === 'leave') { this.release(m.from); return; }
     if (m.type === 'note' && player.instrument && this.running) {
       const target = this.gate.accept(m.from, m, now, this.epoch, path);
-      if (target !== null) this.perform(player.instrument, m.note, target);
+      if (target !== null) this.perform(player.instrument, m.note, target, m.localAudio === true ? m.from : null);
       return;
     }
     if (m.type === 'command' && Number.isSafeInteger(m.commandSeq)) {

@@ -1,4 +1,4 @@
-// All synthesis runs on the host. Controllers never construct an AudioContext.
+// Each listening device synthesizes live notes locally.
 export class BandAudio {
   constructor() { this.nodes = new Set(); this.volume = .65; this.muted = false; }
   async enable() {

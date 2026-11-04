@@ -1,3 +1,5 @@
+import { BandAudio } from './src/audio.mjs';
+import { playScreen, exitPlayScreen, LiveMix } from './src/play-screen.mjs';
 import { DirectLink } from './src/direct-link.mjs';
 import { PhoneChannel, phoneConfig, randomId, validId } from './src/channel.mjs';
 import { ClockSync, INSTRUMENTS } from './src/music-core.mjs';
@@ -8,6 +10,7 @@ let client = randomId();
 try { const saved = sessionStorage.getItem(`greenlight-${room}`); if (validId(saved)) client = saved; else sessionStorage.setItem(`greenlight-${room}`, client); } catch {}
 let direct, directGeneration = -1, lastPong = -Infinity;
 let joinTimeout, channel, state, instrument, lastState = -Infinity, revision = -1, seq = Date.now(), commandSeq = Date.now(), commandPending, pingTimer, pulseTimer;
+const audio = new BandAudio(), mix = new LiveMix();
 const sync = new ClockSync(), pings = new Map(); let lastPing = 0, name = '', connecting = false;
 function show(message) { $('#phone-status').textContent = message; }
 function usable() { return !!channel?.ready && state?.running && !!instrument && sync.ready(performance.now()) && performance.now() - lastState < 3000 && !document.hidden; }
@@ -22,7 +25,7 @@ function render() {
   else if (document.hidden) show('Return to this page to play.');
   else if (!sync.ready(performance.now())) show('Synchronizing with the host clock…');
   else if (!state.running) show('Connected. The host has paused playing.');
-  else show(`You’re on ${names[instrument].toLowerCase()}. Sound plays on the host.`);
+  else show(`You’re on ${names[instrument].toLowerCase()}. You hear the whole band here.`);
   $('#latency').textContent = sync.ready(performance.now()) ? `Round trip ${Math.round(sync.rtt)} ms · ${sync.rtt > 200 ? 'Slow connection: late notes may be dropped.' : 'Clock synchronized · live inputs are never replayed.'}` : 'Synchronizing clocks…';
 
 }
@@ -45,6 +48,12 @@ function liveSend(m) {
 function routeChanged() { sync.reset(); pings.clear(); lastPing = 0; lastPong = performance.now(); render(); }
 function receive(m, path = 'relay') {
   if (m.from !== host) return;
+  if (m.type === 'performance') {
+    if (!channel?.ready || document.hidden || performance.now() - lastState > 3000) return;
+    const target = mix.accept(m, state, sync, performance.now());
+    if (target !== null) audio.note(m.instrument, m.note, target, m.volume);
+    return;
+  }
   if (m.type === 'rtc') {
     if (!validId(m.session) || !Number.isSafeInteger(m.generation) || m.generation <= directGeneration || m.description?.type !== 'offer') return;
     directGeneration = m.generation; direct?.close();
@@ -63,6 +72,7 @@ function receive(m, path = 'relay') {
   }
   if (m.type !== 'state' || !Number.isSafeInteger(m.revision) || m.revision <= revision || !validId(m.epoch) || typeof m.running !== 'boolean') return;
   clearTimeout(joinTimeout);
+  if (state?.epoch !== m.epoch || !m.running) audio.stop();
   revision = m.revision; lastState = performance.now(); state = m;
   const next = INSTRUMENTS.includes(m.instrument) ? m.instrument : null;
   if (next !== instrument) { instrument = next; $('#phone-title').textContent = instrument ? names[instrument] : 'You’re on the list.'; if (instrument) controls($('#phone-controls'), instrument, play); else $('#phone-controls').replaceChildren(); }
@@ -74,6 +84,8 @@ async function connect() {
   if (connecting || channel) return;
   connecting = true; $('#connect').disabled = true; name = $('#phone-name').value.trim() || 'Player'; show('Connecting to the stage…');
   try {
+    await audio.enable();
+    playScreen($('.phone-page'));
     const config = await phoneConfig();
     channel = new PhoneChannel(config, room, client, { message: receive, status: (status, error) => {
       $('#phone-network').textContent = status === 'ready' ? 'CONNECTED' : status.toUpperCase();
@@ -84,13 +96,15 @@ async function connect() {
     joinTimeout = setTimeout(() => { if (!state) { disconnect(false); show('The host did not respond. Keep its stage open and scan a fresh QR code.'); } }, 12000);
     pingTimer = setInterval(ping, 180);
     pulseTimer = setInterval(() => { if (channel?.ready && performance.now() - lastState > 3000) hello().catch(() => {}); render(); }, 1200);
-  } catch (e) { show(e.message); channel?.close(); channel = null; }
+  } catch (e) { disconnect(false); show(e.message); }
   finally { connecting = false; $('#connect').disabled = false; }
 }
 function play(note) {
   if (!usable()) return;
+  if (audio.context?.state !== 'running') { show('Tap Enable sound to resume audio.'); return; }
+  audio.note(instrument, note, performance.now() + 2, state.volumes?.[instrument] ?? .75);
   // Never use reliable delivery for music. Timestamp against the measured host clock.
-  liveSend({ type: 'note', seq: ++seq, epoch: state.epoch, at: sync.hostTime(performance.now()), note });
+  liveSend({ type: 'note', localAudio: true, seq: ++seq, epoch: state.epoch, at: sync.hostTime(performance.now()), note });
 }
 async function command(action, value) {
   if (!channel?.ready || !instrument || commandPending) return;
@@ -101,6 +115,7 @@ async function command(action, value) {
   catch (e) { if (commandPending?.seq === current) { clearTimeout(commandPending.timer); commandPending = null; $('#command-status').textContent = e.message; render(); } }
 }
 function disconnect(notify = true) {
+  audio.stop(); exitPlayScreen($('.phone-page'));
   clearTimeout(joinTimeout);
   if (notify) channel?.send({ type: 'leave' }, host);
   direct?.close(); direct = null; directGeneration = -1;
@@ -110,10 +125,12 @@ function disconnect(notify = true) {
   $('#phone-controls').replaceChildren(); $('#connect-form').classList.remove('hidden'); $('#phone-session').classList.add('hidden'); $('#phone-title').textContent = 'Join the band.'; $('#phone-network').textContent = 'DISCONNECTED'; show('Disconnected. Tap Connect to rejoin.');
 }
 $('#connect-form').onsubmit = event => { event.preventDefault(); connect(); };
+$('#enable-sound').onclick = async () => { try { await audio.enable(); playScreen($('.phone-page')); } catch (e) { show(e.message); } };
+$('#exit-play').onclick = () => exitPlayScreen($('.phone-page'));
 $('#disconnect').onclick = () => disconnect();
 $('#track-volume').onchange = () => command('volume', Number($('#track-volume').value) / 100);
 keyboard(play);
 setInterval(render, 100);
-document.addEventListener('visibilitychange', () => { sync.reset(); pings.clear(); render(); if (!document.hidden) ping(); });
+document.addEventListener('visibilitychange', () => { audio.stop(); sync.reset(); pings.clear(); render(); if (!document.hidden) ping(); });
 window.addEventListener('pagehide', () => disconnect());
 if (!validId(room) || !validId(host)) { $('#connect').disabled = true; show('Open the stage on a computer and scan a fresh controller QR code.'); }

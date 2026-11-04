@@ -16,7 +16,7 @@ export class DirectLink {
     this.dc = dc;
     dc.onopen = () => { clearTimeout(this.timeout); this.status('direct'); };
     dc.onclose = () => this.close(); dc.onerror = () => this.close();
-    dc.onmessage = e => { if (this.closed || typeof e.data !== 'string' || e.data.length > 2048) return; try { const m = JSON.parse(e.data); if (['note','ping','pong'].includes(m?.type)) this.message(m); } catch {} };
+    dc.onmessage = e => { if (this.closed || typeof e.data !== 'string' || e.data.length > 2048) return; try { const m = JSON.parse(e.data); if (['note','performance','ping','pong'].includes(m?.type)) this.message(m); } catch {} };
   }
   async gather() {
     if (this.pc.iceGatheringState === 'complete') return;
