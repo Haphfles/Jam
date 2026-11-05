@@ -9,3 +9,5 @@ body.is-playing{overflow:hidden}.play-screen{position:fixed!important;inset:0;z-
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 .player-panel:not(.play-screen){display:none}
+
+.guitar-strings,.guitar-strings *{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.guitar-strings{overscroll-behavior:contain}
