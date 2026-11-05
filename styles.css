@@ -23,3 +23,5 @@ body.is-playing{overflow:hidden}.play-screen{position:fixed!important;inset:0;z-
 @media(max-height:550px) and (orientation:landscape){.play-screen>.drum-kit,.play-screen #phone-controls.drum-kit{width:min(100%,calc((100dvh - 155px)*1.12))}.synth-keys{min-height:140px}}
 
 .instrument-picker{display:flex;align-items:center;gap:12px;flex-shrink:0;margin-bottom:14px}.instrument-picker select{flex:1;max-width:320px}#instrument-status:empty{display:none}#instrument-status{font-size:11px;margin:0 0 10px}
+
+.brand{display:flex;align-items:center;gap:14px;flex-shrink:0}.brand .brand-logo{display:block;width:66px;height:70px;object-fit:contain}.brand .brand-name{font:normal 23px/1 BrandHeadline,serif;letter-spacing:.5px;margin:0;color:var(--lime)}@media(max-width:600px){.brand{gap:9px}.brand .brand-logo{width:45px;height:50px}.brand .brand-name{font-size:18px}}
