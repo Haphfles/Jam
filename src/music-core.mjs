@@ -40,24 +40,46 @@ export class InputGate {
   forget(peer) { this.sequence.delete(peer); this.rates.delete(peer); this.timing.delete(peer); }
 }
 export class Seats {
-  constructor() { this.players = new Map(); this.slots = Object.fromEntries(INSTRUMENTS.map(i => [i, null])); this.queue = []; }
+  constructor() { this.players = new Map(); this.slots = Object.fromEntries(INSTRUMENTS.map(i => [i, null])); this.queue = []; this.assignment = 0; }
   join(id, name, preferred, now) {
     if (this.players.has(id)) { this.players.get(id).seen = now; return; }
     if (this.players.size >= 30) throw Error('This room’s waiting list is full.');
     const free = INSTRUMENTS.find(i => !this.slots[i]);
-    const instrument = INSTRUMENTS.includes(preferred) && !this.slots[preferred] ? preferred : free;
-    this.players.set(id, { id, name: String(name || 'Player').slice(0, 24), instrument: instrument || null, seen: now, command: -1 });
+    const wanted = INSTRUMENTS.includes(preferred) ? preferred : null;
+    const instrument = wanted ? (!this.slots[wanted] ? wanted : null) : free;
+    this.players.set(id, { id, name: String(name || 'Player').slice(0, 24), instrument: instrument || null, preferred: wanted, assignment: ++this.assignment, seen: now, command: -1 });
     if (instrument) this.slots[instrument] = id; else this.queue.push(id);
   }
   leave(id) {
     const p = this.players.get(id); if (!p) return null;
     if (p.instrument) this.slots[p.instrument] = null;
     this.players.delete(id); this.queue = this.queue.filter(peer => peer !== id);
-    for (const instrument of INSTRUMENTS) {
-      if (this.slots[instrument] || !this.queue.length) continue;
-      const next = this.queue.shift(); this.players.get(next).instrument = instrument; this.slots[instrument] = next;
-    }
+    this.promote();
     return p.instrument;
+  }
+  promote() {
+    for (const instrument of INSTRUMENTS) {
+      if (this.slots[instrument]) continue;
+      const index = this.queue.findIndex(id => !this.players.get(id).preferred || this.players.get(id).preferred === instrument);
+      if (index < 0) continue;
+      const [id] = this.queue.splice(index,1), player = this.players.get(id);
+      player.instrument = instrument; player.assignment = ++this.assignment; this.slots[instrument] = id;
+    }
+  }
+  switchInstrument(id, instrument) {
+    const player = this.players.get(id);
+    if (!player || !INSTRUMENTS.includes(instrument)) throw Error('Choose a valid instrument.');
+    if (player.instrument === instrument) return;
+    if (this.slots[instrument]) throw Error('That instrument is occupied. Choose an available instrument.');
+    const old = player.instrument;
+    // Reserve the destination before releasing the old seat or promoting the queue.
+    this.slots[instrument] = id;
+    if (old) this.slots[old] = null;
+    this.queue = this.queue.filter(peer => peer !== id);
+    player.instrument = instrument; player.preferred = instrument;
+    player.assignment = ++this.assignment; player.switched = true;
+    this.promote();
+    return old;
   }
   expire(now) { return [...this.players.values()].filter(p => now - p.seen > 10000).map(p => p.id); }
 }

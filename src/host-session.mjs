@@ -82,6 +82,7 @@ export class HostSession {
     }
     if (m.type === 'leave') { this.release(m.from); return; }
     if (m.type === 'note' && player.instrument && this.running) {
+      if ((player.switched || m.assignment !== undefined) && m.assignment !== player.assignment) return;
       const target = this.gate.accept(m.from, m, now, this.epoch, path, player.instrument);
       if (target !== null) this.perform(player.instrument, m.note, target, m.localAudio === true ? m.from : null);
       return;
@@ -92,7 +93,13 @@ export class HostSession {
       else if (m.commandSeq <= player.command) error = 'That control was superseded. Try again.';
       else {
         player.command = m.commandSeq;
-        try { this.command(player.instrument, m.action, m.value); } catch (e) { error = e.message; }
+        try {
+          if (m.action === 'instrument') {
+            const old = this.seats.switchInstrument(m.from,m.value);
+            if (old) { this.audio.stop(old); this.volumes[old] = .75; }
+            this.publish(true); this.ensureDirect(m.from);
+          } else this.command(player.instrument, m.action, m.value);
+        } catch (e) { error = e.message; }
       }
       this.channel.reliable({ type: 'result', commandSeq: m.commandSeq, error }, m.from).catch(() => {});
     }
@@ -112,7 +119,7 @@ export class HostSession {
   snapshot(peer) {
     const now = performance.now();
     return { type: 'state', revision: ++this.revision, epoch: this.epoch, running: this.running, now,
-      instrument: this.seats.players.get(peer)?.instrument || null, position: this.seats.queue.indexOf(peer) + 1,
+      instrument: this.seats.players.get(peer)?.instrument || null, assignment: this.seats.players.get(peer)?.assignment, preferred: this.seats.players.get(peer)?.preferred, position: this.seats.queue.indexOf(peer) + 1,
       slots: Object.fromEntries(INSTRUMENTS.map(i => [i, this.seats.slots[i] ? { name: this.seats.players.get(this.seats.slots[i]).name } : null])),
       volumes: { ...this.volumes }, dropped: this.gate.dropped };
   }

@@ -21,3 +21,5 @@ body.is-playing{overflow:hidden}.play-screen{position:fixed!important;inset:0;z-
 .play-screen>.drum-kit,.play-screen #phone-controls.drum-kit{width:min(100%,calc((100dvh - 210px)*1.12),700px)}
 @media(max-width:600px){.synth-controls{gap:14px}.synth-keys{gap:4px}.synth-keys .note-key{font-size:12px}.drum-kit .drum-pad{font-size:11px}.drum-kit small{font-size:9px}}
 @media(max-height:550px) and (orientation:landscape){.play-screen>.drum-kit,.play-screen #phone-controls.drum-kit{width:min(100%,calc((100dvh - 155px)*1.12))}.synth-keys{min-height:140px}}
+
+.instrument-picker{display:flex;align-items:center;gap:12px;flex-shrink:0;margin-bottom:14px}.instrument-picker select{flex:1;max-width:320px}#instrument-status:empty{display:none}#instrument-status{font-size:11px;margin:0 0 10px}

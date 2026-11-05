@@ -24,3 +24,7 @@ The fonts in fonts/ were extracted from the supplied GREENLIGHT Studio HTML. Kee
 ## Bass, synth and drums
 
 Bass uses the same chord bank as guitar, with four playable chord-tone strings and touch swiping. Synth offers eight chord-tone keys across registers. Chord selection is local; actual pitches are transmitted so every listener hears the same notes. Drums use circular pads in a drummer-facing kit layout; the original eight sounds and keyboard bindings are preserved. Percussion remains a pad grid.
+
+## Phone instrument selection
+
+Choose an instrument before joining (or Any available). A specific occupied choice waits for that instrument. While connected, use the Instrument selector above the controls to switch to an available spot. The host confirms every switch, preserves your current spot if the target was taken, and rejects notes from your previous assignment. Upload the entire deployment and reopen the host session so both host and phones use this version.
