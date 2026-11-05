@@ -1,4 +1,4 @@
-# Publish GREENLIGHT Band
+# Publish GREENLIGHT JAMMER
 
 Upload the contents of `deployment/` to the GitHub Pages publishing root. Keep `src/` and `vendor/` alongside `index.html`, `app.js`, `controller.html`, `controller.js`, `styles.css`, `fonts/`, `shared-config.json`, and `.nojekyll`. Replace existing files. No Node server or build step is needed on GitHub.
 
@@ -28,3 +28,7 @@ Bass uses the same chord bank as guitar, with four playable chord-tone strings a
 ## Phone instrument selection
 
 Choose an instrument before joining (or Any available). A specific occupied choice waits for that instrument. While connected, use the Instrument selector above the controls to switch to an available spot. The host confirms every switch, preserves your current spot if the target was taken, and rejects notes from your previous assignment. Upload the entire deployment and reopen the host session so both host and phones use this version.
+
+## Welcome and invitations
+
+The welcome screen shows Play, Host and Join. Play reveals solo instrument choices. Host opens its invitation popup automatically, with QR, Copy and Share; the red LIVE indicator appears only while connected and playing. End session returns home. Join accepts a pasted invitation or scans it with the rear camera; the browser requests permission on Scan QR code. Frames are decoded locally by bundled jsQR 1.4.0 (Apache-2.0), loaded only when scanning. Closing the popup, leaving the page or accepting a code stops the camera. Native sharing falls back to copying the link.
