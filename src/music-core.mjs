@@ -1,3 +1,4 @@
+import { maxNote } from './pitched.mjs';
 export const INSTRUMENTS = ['guitar', 'bass', 'synth', 'drums', 'percussion'];
 export class ClockSync {
   constructor() { this.reset(); }
@@ -16,7 +17,7 @@ export class ClockSync {
 export class InputGate {
   constructor() { this.sequence = new Map(); this.rates = new Map(); this.timing = new Map(); this.dropped = 0; }
   accept(peer, m, now, epoch, path = 'relay', instrument = null) {
-    if (!m || m.epoch !== epoch || !Number.isSafeInteger(m.seq) || m.seq < 0 || !Number.isInteger(m.note) || m.note < 0 || m.note > (instrument === 'guitar' ? 55 : 7) || !Number.isFinite(m.at)) return this.drop();
+    if (!m || m.epoch !== epoch || !Number.isSafeInteger(m.seq) || m.seq < 0 || !Number.isInteger(m.note) || m.note < 0 || m.note > maxNote(instrument) || !Number.isFinite(m.at)) return this.drop();
     if (m.seq <= (this.sequence.get(peer) ?? -1)) return this.drop();
     this.sequence.set(peer, m.seq);
     const age = now - m.at, direct = path === 'direct';

@@ -20,3 +20,7 @@ Validation: `npm --prefix development test`; package: `python3 scripts/package-s
 Select one of eight chords, then tap or swipe across six strings. Strumming works in both directions, with pointer capture and support for changing chords with a second finger. Muted strings are marked ×. Keyboard A S D F G H plucks the six strings. Guitar chord pitches travel through the same live networking path as other instruments.
 
 The fonts in fonts/ were extracted from the supplied GREENLIGHT Studio HTML. Keep the fonts/ folder in the GitHub upload.
+
+## Bass, synth and drums
+
+Bass uses the same chord bank as guitar, with four playable chord-tone strings and touch swiping. Synth offers eight chord-tone keys across registers. Chord selection is local; actual pitches are transmitted so every listener hears the same notes. Drums use circular pads in a drummer-facing kit layout; the original eight sounds and keyboard bindings are preserved. Percussion remains a pad grid.

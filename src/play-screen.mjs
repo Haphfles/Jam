@@ -1,3 +1,4 @@
+import { maxNote } from './pitched.mjs';
 export function playScreen(panel) {
   panel.classList.add('play-screen');
   document.body.classList.add('is-playing');
@@ -14,7 +15,7 @@ export class LiveMix {
   accept(m, state, sync, now) {
     if (!state?.running || m.epoch !== state.epoch || !sync.ready(now) ||
         !Number.isSafeInteger(m.seq) || m.seq <= this.last ||
-        !Number.isInteger(m.note) || m.note < 0 || m.note > (m.instrument === 'guitar' ? 55 : 7) ||
+        !Number.isInteger(m.note) || m.note < 0 || m.note > maxNote(m.instrument) ||
         !['guitar','bass','synth','drums','percussion'].includes(m.instrument) ||
         !Number.isFinite(m.at) || !Number.isFinite(m.volume) || m.volume < 0 || m.volume > 1) return null;
     this.last = m.seq;

@@ -67,7 +67,7 @@ async function chooseInstrument(instrument) {
     if (host) host.localInstrument(instrument);
     audio.stop(); soloInstrument = instrument || null;
     $('#local-instrument').value = instrument;
-    if (instrument) { $('.control-hint').textContent = instrument === 'guitar' ? 'Select a chord · Swipe strings · A S D F G H' : 'Touch to play · A S D F G H J K'; controls($('#desktop-controls'), instrument, play); playScreen($('.player-panel')); }
+    if (instrument) { $('.control-hint').textContent = ({guitar:'Select a chord · Swipe strings · A S D F G H',bass:'Select a chord · Pluck or swipe · A S D F',synth:'Select a chord · Play keys · A S D F G H J K'})[instrument] || 'Touch to play · A S D F G H J K'; controls($('#desktop-controls'), instrument, play); playScreen($('.player-panel')); }
     else { $('#desktop-controls').replaceChildren(); exitPlayScreen($('.player-panel')); }
     $('#dock-status').textContent = 'AUDIO ON';
   } catch (e) { toast(e.message); $('#local-instrument').value = host?.local || soloInstrument || ''; }

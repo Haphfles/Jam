@@ -1,3 +1,4 @@
+import { chordNotes, voicing, encodePitch } from './pitched.mjs';
 // MIDI voicings from low to high string; null means a muted string.
 export const chords = {
   Cm: [null,48,55,60,63,67], 'E♭': [null,51,58,63,67,70],
@@ -14,28 +15,30 @@ export function crossedStrings(from, to, centers) {
   return centers.map((y,i)=>({y,i})).filter(({y})=>down ? y > from && y <= to : y < from && y >= to)
     .sort((a,b)=>down ? a.y-b.y : b.y-a.y).map(({i})=>i);
 }
-export function guitarControls(el, play) {
-  el.className = 'instrument-controls guitar-controls'; el.replaceChildren();
+export function guitarControls(el, play, instrument = 'guitar') {
+  const bass = instrument === 'bass', count = bass ? 4 : 6;
+  const bankNotes = bass ? Object.fromEntries(Object.keys(chordNotes).map(name=>[name,voicing('bass',name)])) : chords;
+  el.className = `instrument-controls guitar-controls ${bass ? 'bass-controls' : ''}`; el.replaceChildren();
   let selected = 'Cm';
-  const bank = document.createElement('div'); bank.className = 'chord-bank'; bank.setAttribute('aria-label','Guitar chords');
+  const bank = document.createElement('div'); bank.className = 'chord-bank'; bank.setAttribute('aria-label',`${bass ? 'Bass' : 'Guitar'} chords`);
   const strings = document.createElement('div'); strings.className = 'guitar-strings'; strings.setAttribute('aria-label','Strum strings');
   const buttons = [];
   const pluck = index => {
     const button = buttons[index]; if (!button || button.disabled) return;
-    const midi = chords[selected][index]; if (midi === null) return;
-    play(encodeGuitar(midi)); button.classList.remove('pressed'); void button.offsetWidth; button.classList.add('pressed');
+    const midi = bankNotes[selected][index]; if (midi === null) return;
+    play(encodePitch(instrument,midi)); button.classList.remove('pressed'); void button.offsetWidth; button.classList.add('pressed');
     setTimeout(()=>button.classList.remove('pressed'),130);
   };
   const update = () => {
     for (const button of bank.children) button.setAttribute('aria-pressed',String(button.textContent === selected));
-    buttons.forEach((button,i)=>{const pitch=chords[selected][i];button.querySelector('.pitch').textContent=noteName(pitch);button.classList.toggle('muted-string',pitch===null);button.setAttribute('aria-label',`String ${6-i}: ${noteName(pitch)}`);});
+    buttons.forEach((button,i)=>{const pitch=bankNotes[selected][i];button.querySelector('.pitch').textContent=noteName(pitch);button.classList.toggle('muted-string',pitch===null);button.setAttribute('aria-label',`String ${count-i}: ${noteName(pitch)}`);});
   };
-  for (const name of Object.keys(chords)) {
+  for (const name of Object.keys(bankNotes)) {
     const button=document.createElement('button');button.type='button';button.className='chord-button';button.textContent=name;
     const select=()=>{selected=name;update();};
     button.onpointerdown=e=>{e.preventDefault();select();};button.onclick=select;bank.append(button);
   }
-  for(let i=0;i<6;i++) {
+  for(let i=0;i<count;i++) {
     const button=document.createElement('button');button.type='button';button.className='guitar-string';button.style.setProperty('--weight',`${3-i*.35}px`);
     button.innerHTML=`<span class="pitch"></span><span class="string-line"></span><small>${['A','S','D','F','G','H'][i]}</small>`;
     button.onclick=e=>{if(e.detail===0)pluck(i);}; buttons.push(button);strings.append(button);
@@ -43,7 +46,7 @@ export function guitarControls(el, play) {
   const centers=()=>buttons.map(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2;});
   bindStrumming(strings, centers, pluck, () => !buttons.every(b=>b.disabled));
   el.append(bank,strings);update();
-  return index=>{if(index<6)pluck(index);};
+  return index=>{if(index<count)pluck(index);};
 }
 
 // Touch events track each finger independently, without relying on a button's
