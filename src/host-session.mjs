@@ -82,7 +82,7 @@ export class HostSession {
     }
     if (m.type === 'leave') { this.release(m.from); return; }
     if (m.type === 'note' && player.instrument && this.running) {
-      const target = this.gate.accept(m.from, m, now, this.epoch, path);
+      const target = this.gate.accept(m.from, m, now, this.epoch, path, player.instrument);
       if (target !== null) this.perform(player.instrument, m.note, target, m.localAudio === true ? m.from : null);
       return;
     }

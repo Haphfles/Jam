@@ -1,6 +1,6 @@
 # Publish GREENLIGHT Band
 
-Upload the contents of `deployment/` to the GitHub Pages publishing root. Keep `src/` and `vendor/` alongside `index.html`, `app.js`, `controller.html`, `controller.js`, `styles.css`, `art.mjs`, `shared-config.json`, and `.nojekyll`. Replace existing files. No Node server or build step is needed on GitHub.
+Upload the contents of `deployment/` to the GitHub Pages publishing root. Keep `src/` and `vendor/` alongside `index.html`, `app.js`, `controller.html`, `controller.js`, `styles.css`, `fonts/`, `shared-config.json`, and `.nojekyll`. Replace existing files. No Node server or build step is needed on GitHub.
 
 ## Play
 
@@ -14,3 +14,9 @@ Upload the contents of `deployment/` to the GitHub Pages publishing root. Keep `
 GitHub Pages hosts the static files. Supabase handles invitations, room state and reliable commands; WebRTC carries live notes when available, with Supabase fallback. The supplied public config must remain enabled. No loop/recording tools are included.
 
 Validation: `npm --prefix development test`; package: `python3 scripts/package-static.py` from the project root. Physical phone and multi-device latency should be checked after upload.
+
+## Guitar controls
+
+Select one of eight chords, then tap or swipe across six strings. Strumming works in both directions, with pointer capture and support for changing chords with a second finger. Muted strings are marked ×. Keyboard A S D F G H plucks the six strings. Guitar chord pitches travel through the same live networking path as other instruments.
+
+The fonts in fonts/ were extracted from the supplied GREENLIGHT Studio HTML. Keep the fonts/ folder in the GitHub upload.

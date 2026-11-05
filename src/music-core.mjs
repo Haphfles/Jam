@@ -15,8 +15,8 @@ export class ClockSync {
 }
 export class InputGate {
   constructor() { this.sequence = new Map(); this.rates = new Map(); this.timing = new Map(); this.dropped = 0; }
-  accept(peer, m, now, epoch, path = 'relay') {
-    if (!m || m.epoch !== epoch || !Number.isSafeInteger(m.seq) || m.seq < 0 || !Number.isInteger(m.note) || m.note < 0 || m.note > 7 || !Number.isFinite(m.at)) return this.drop();
+  accept(peer, m, now, epoch, path = 'relay', instrument = null) {
+    if (!m || m.epoch !== epoch || !Number.isSafeInteger(m.seq) || m.seq < 0 || !Number.isInteger(m.note) || m.note < 0 || m.note > (instrument === 'guitar' ? 55 : 7) || !Number.isFinite(m.at)) return this.drop();
     if (m.seq <= (this.sequence.get(peer) ?? -1)) return this.drop();
     this.sequence.set(peer, m.seq);
     const age = now - m.at, direct = path === 'direct';
@@ -27,7 +27,7 @@ export class InputGate {
     if (age < -30 || age > deadline) return this.drop();
     const rate = this.rates.get(peer) || { start: now, count: 0 };
     if (now - rate.start > 1000) { rate.start = now; rate.count = 0; }
-    this.rates.set(peer, rate); if (++rate.count > 40) return this.drop();
+    this.rates.set(peer, rate); if (++rate.count > (instrument === 'guitar' ? 96 : 40)) return this.drop();
     timing.ages.push(Math.max(0, age)); timing.ages = timing.ages.slice(-24);
     const sorted = [...timing.ages].sort((a,b) => a-b);
     const p80 = sorted[Math.floor((sorted.length - 1) * .8)];

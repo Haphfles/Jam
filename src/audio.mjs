@@ -38,7 +38,7 @@ export class BandAudio {
       track(source, filter, gain, duration);
     };
     const f = 130.8128 * 2 ** ([0, 3, 5, 7, 10, 12, 15, 17][note] / 12);
-    if (instrument === 'guitar') { tone(f * 2, 'triangle', 1.25, .25); tone(f * 4, 'sine', .35, .07); }
+    if (instrument === 'guitar') { const pitch = note >= 8 ? 440 * 2 ** ((note - 8 + 40 - 69) / 12) : f * 2; tone(pitch, 'triangle', 1.25, .25); tone(pitch * 2, 'sine', .35, .07); }
     if (instrument === 'bass') tone(f / 2, 'triangle', .65, .4);
     if (instrument === 'synth') { tone(f * 2, 'sawtooth', .8, .11); tone(f * 2.008, 'triangle', .85, .12); }
     if (instrument === 'drums') {

@@ -25,7 +25,7 @@ function render() {
   else if (document.hidden) show('Return to this page to play.');
   else if (!sync.ready(performance.now())) show('Synchronizing with the host clock…');
   else if (!state.running) show('Connected. The host has paused playing.');
-  else show(`You’re on ${names[instrument].toLowerCase()}. You hear the whole band here.`);
+  else show(`Live · ${names[instrument]}`);
   $('#latency').textContent = sync.ready(performance.now()) ? `Round trip ${Math.round(sync.rtt)} ms · ${sync.rtt > 200 ? 'Slow connection: late notes may be dropped.' : 'Clock synchronized · live inputs are never replayed.'}` : 'Synchronizing clocks…';
 
 }
@@ -75,7 +75,7 @@ function receive(m, path = 'relay') {
   if (state?.epoch !== m.epoch || !m.running) audio.stop();
   revision = m.revision; lastState = performance.now(); state = m;
   const next = INSTRUMENTS.includes(m.instrument) ? m.instrument : null;
-  if (next !== instrument) { instrument = next; $('#phone-title').textContent = instrument ? names[instrument] : 'You’re on the list.'; if (instrument) controls($('#phone-controls'), instrument, play); else $('#phone-controls').replaceChildren(); }
+  if (next !== instrument) { instrument = next; $('#phone-title').textContent = instrument ? names[instrument] : 'Waiting'; if (instrument) controls($('#phone-controls'), instrument, play); else $('#phone-controls').replaceChildren(); }
   if (!commandPending && instrument) $('#track-volume').value = Math.round((m.volumes?.[instrument] ?? .75) * 100);
   $('#connect-form').classList.add('hidden'); $('#phone-session').classList.remove('hidden');
   render(); ping();
@@ -122,7 +122,7 @@ function disconnect(notify = true) {
   channel?.close(); channel = null; clearInterval(pingTimer); clearInterval(pulseTimer);
   if (commandPending) clearTimeout(commandPending.timer); commandPending = null;
   state = null; instrument = null; revision = -1; sync.reset(); pings.clear(); lastState = -Infinity;
-  $('#phone-controls').replaceChildren(); $('#connect-form').classList.remove('hidden'); $('#phone-session').classList.add('hidden'); $('#phone-title').textContent = 'Join the band.'; $('#phone-network').textContent = 'DISCONNECTED'; show('Disconnected. Tap Connect to rejoin.');
+  $('#phone-controls').replaceChildren(); $('#connect-form').classList.remove('hidden'); $('#phone-session').classList.add('hidden'); $('#phone-title').textContent = 'Join band'; $('#phone-network').textContent = 'DISCONNECTED'; show('Disconnected. Tap Connect to rejoin.');
 }
 $('#connect-form').onsubmit = event => { event.preventDefault(); connect(); };
 $('#enable-sound').onclick = async () => { try { await audio.enable(); playScreen($('.phone-page')); } catch (e) { show(e.message); } };
